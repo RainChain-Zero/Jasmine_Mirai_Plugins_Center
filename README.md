@@ -1,2 +1,4 @@
-# Mirai_Plugin
- Jasmine Mirai 插件中心 
+### Jasmine_Nonebot2_Plugins_Center
+
+ Jasmine Mirai 插件中心
+
