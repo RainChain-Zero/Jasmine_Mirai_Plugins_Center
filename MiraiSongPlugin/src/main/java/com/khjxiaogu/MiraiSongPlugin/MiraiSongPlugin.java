@@ -338,7 +338,7 @@ public class MiraiSongPlugin extends JavaPlugin {
                             exec.accept(event, args);
 
                     } else {
-                        event.getSender().sendMessage("『×条件未满足』此功能需要好感度≥1000哦~");
+                        event.getGroup().sendMessage("『×条件未满足』此功能需要好感度≥1000哦~");
                     }
             }
 
