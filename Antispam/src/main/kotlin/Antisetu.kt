@@ -34,7 +34,7 @@ object Antisetu : KotlinPlugin(
         //反图片刷屏（>=5)
         GlobalEventChannel.filter { event -> event is GroupMessageEvent }.subscribeAlways<GroupMessageEvent> { event ->
             //在这里填写目标group
-            if (event.group.id == 921454429L || event.group.id == 801655697L) {
+            if ((event.group.id == 921454429L || event.group.id == 801655697L) && event.sender.id != 959686587L) {
                 //如果信息包含图片
                 if (event.message.serializeToMiraiCode().contains("[mirai:image:")) {
                     //存在id对应的preTime

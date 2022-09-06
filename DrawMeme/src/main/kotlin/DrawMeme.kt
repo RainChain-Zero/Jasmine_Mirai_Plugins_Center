@@ -331,57 +331,57 @@ object DrawMeme : KotlinPlugin(
                     subject.sendMessage("『×条件未满足』此功能要求好感度≥500")
                 }
             }
-            finding(patReg) { result ->
-                val foo = result.groupValues[1]
-                var delay = 0.05
-
-                var image: SkImage? = null
-                when (foo) {
-                    "我" -> httpClient.get<ByteArray>(sender.avatarUrl).apply {
-                        image = SkImage.makeFromEncoded(this)
-                    }
-
-                    "爆" -> delay = 0.02
-                }
-
-                for (single in message) {
-                    if (null != image) break
-                    when (single) {
-                        is Image -> httpClient.get<ByteArray>(single.queryUrl()).apply {
-                            image = SkImage.makeFromEncoded(this)
-                        }
-
-                        is At -> subject[single.target]?.let {
-                            httpClient.get<ByteArray>(it.avatarUrl).apply {
-                                image = SkImage.makeFromEncoded(this)
-                            }
-                        }
-                    }
-                }
-
-                if (null == image) {
-                    val name = message.content.replace(patReg, "")
-
-                    subject.findUserOrNull(name)?.let {
-                        httpClient.get<ByteArray>(it.avatarUrl).apply {
-                            image = SkImage.makeFromEncoded(this)
-                        }
-                    } ?: kotlin.run {
-                        subject.sendMessage("诶？这是要摸谁呀")
-                        return@finding
-                    }
-                }
-
-                patpat(image!!, delay).bytes.toExternalResource("GIF").use { subject.sendImage(it) }
-            }
-
-            finding(Regex("""^/($fullEmojiRegex).*($fullEmojiRegex)$""")) {
-                val first = it.groupValues[1].toEmoji()
-                val second = it.groupValues[2].toEmoji()
-
-                val file = getEmojiMix(first, second) ?: getEmojiMix(second, first) ?: return@finding
-                file.toExternalResource("png").use { e -> subject.sendImage(e) }
-            }
+//            finding(patReg) { result ->
+//                val foo = result.groupValues[1]
+//                var delay = 0.05
+//
+//                var image: SkImage? = null
+//                when (foo) {
+//                    "我" -> httpClient.get<ByteArray>(sender.avatarUrl).apply {
+//                        image = SkImage.makeFromEncoded(this)
+//                    }
+//
+//                    "爆" -> delay = 0.02
+//                }
+//
+//                for (single in message) {
+//                    if (null != image) break
+//                    when (single) {
+//                        is Image -> httpClient.get<ByteArray>(single.queryUrl()).apply {
+//                            image = SkImage.makeFromEncoded(this)
+//                        }
+//
+//                        is At -> subject[single.target]?.let {
+//                            httpClient.get<ByteArray>(it.avatarUrl).apply {
+//                                image = SkImage.makeFromEncoded(this)
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                if (null == image) {
+//                    val name = message.content.replace(patReg, "")
+//
+//                    subject.findUserOrNull(name)?.let {
+//                        httpClient.get<ByteArray>(it.avatarUrl).apply {
+//                            image = SkImage.makeFromEncoded(this)
+//                        }
+//                    } ?: kotlin.run {
+//                        subject.sendMessage("诶？这是要摸谁呀")
+//                        return@finding
+//                    }
+//                }
+//
+//                patpat(image!!, delay).bytes.toExternalResource("GIF").use { subject.sendImage(it) }
+//            }
+//
+//            finding(Regex("""^/($fullEmojiRegex).*($fullEmojiRegex)$""")) {
+//                val first = it.groupValues[1].toEmoji()
+//                val second = it.groupValues[2].toEmoji()
+//
+//                val file = getEmojiMix(first, second) ?: getEmojiMix(second, first) ?: return@finding
+//                file.toExternalResource("png").use { e -> subject.sendImage(e) }
+//            }
         }
     }
 }
