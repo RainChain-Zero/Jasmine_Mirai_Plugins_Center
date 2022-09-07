@@ -2,6 +2,9 @@ package com.example
 
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
+import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.getMemberOrFail
+import net.mamoe.mirai.contact.nameCardOrNick
 import net.mamoe.mirai.event.Event
 import net.mamoe.mirai.event.GlobalEventChannel
 import net.mamoe.mirai.event.events.FriendMessageEvent
@@ -24,7 +27,7 @@ object NkGame : KotlinPlugin(
         //标记游戏是否开始,group->Boolean
         val isGameStart = mutableMapOf<Long,Boolean>()
         //标记参加游戏的人员,player->group
-        val playerGroup = mutableMapOf<Long,Long>()
+        var playerGroup = mutableMapOf<Long,Long>()
         //存放游戏关键词待选池,group->keywords->player's name
         val keyWords = mutableMapOf<Long,MutableMap<String,String>>()
         //存放游戏数据,group->player->keyword
@@ -48,7 +51,7 @@ object NkGame : KotlinPlugin(
                 event.group.sendMessage(event.message.quote()+"你已经加入一个游戏了哦~")
                 return@subscribeAlways
             }
-            gameData[event.group.id]  = mutableMapOf(event.sender.id to "")
+            gameData[event.group.id]?.put(event.sender.id,"")
             playerGroup[event.sender.id] = event.group.id
             event.group.sendMessage(event.message.quote()+"你已经成功加入了本局游戏√")
         }
@@ -57,8 +60,9 @@ object NkGame : KotlinPlugin(
             event is FriendMessageEvent && event.message.contentToString().startsWith("/添加nk")
                     && playerGroup.containsKey(event.sender.id)
         }.subscribeAlways<FriendMessageEvent> { event ->
-            val messageOri = event.message.contentToString().substring(5)
-            val keyWordsList = messageOri.split("%s+".toRegex())
+            val messageOri = event.message.contentToString().substring(5).trim()
+            //用空格分割关键词列表
+            val keyWordsList = messageOri.split(" ").filter { it.isNotBlank() }
             val group = playerGroup[event.sender.id]!!
             logger.info("已添加关键词：$keyWordsList")
             keyWordsList.forEach(){
@@ -77,7 +81,7 @@ object NkGame : KotlinPlugin(
                 event.group.sendMessage("游戏已经开始了哦~")
                 return@subscribeAlways
             }
-            if ((keyWords[event.group.id]?.size ?: 0) < gameData[event.group.id]!!.keys.size) {
+            if ((keyWords[event.group.id]?.keys?.size ?: 0) < gameData[event.group.id]!!.keys.size) {
                 event.group.sendMessage("关键词数量不足,请添加关键词后再开始游戏")
                 return@subscribeAlways
             }
@@ -96,6 +100,24 @@ object NkGame : KotlinPlugin(
             logger.info("最终关键词：${gameData[event.group.id].toString()}")
             event.group.sendMessage("游戏正式开始——开始前记得看看其他人都分到了什么关键词哦~")
         }
+        //查看关键词
+        GlobalEventChannel.filter { event: Event ->
+            event is FriendMessageEvent && event.message.contentToString().startsWith("/查看nk")
+                     && playerGroup.containsKey(event.sender.id)
+        }.subscribeAlways<FriendMessageEvent> { event ->
+            val group = playerGroup[event.sender.id]!!
+            if (isGameStart[group] == false) {
+                event.friend.sendMessage("游戏还没有开始哦~")
+                return@subscribeAlways
+            }
+            val groupImpl: Group? = bot.getGroup(group)
+            val keyWordsMap = gameData[group]?.filter { (player, _) -> player != event.sender.id }
+            var message = "当前玩家的关键词:\n"
+            keyWordsMap?.forEach { (player, keyWord) ->
+                message += "${groupImpl?.getMemberOrFail(player)?.nameCardOrNick}：${keyWord}\n"
+            }
+            event.friend.sendMessage("当前关键词池：${message}")
+        }
         //检测是否有人说了关键词
         GlobalEventChannel.filter { event: Event ->
             event is GroupMessageEvent && isGameStart[event.group.id] == true
@@ -110,23 +132,22 @@ object NkGame : KotlinPlugin(
                 playerGroup.remove(event.sender.id)
             }
             if ((gameData[event.group.id]?.keys?.size ?: 0) <= 1){
-                event.group.sendMessage("游戏结束,恭喜${gameData[event.group.id]?.keys?.
-                    firstOrNull()?.let { event.group[it] }?.nick}获得胜利!")
+                val winner = gameData[event.group.id]?.keys?.firstOrNull()
+                event.group.sendMessage("游戏结束,恭喜${winner?.let { event.group[it] }?.nick}获得胜利!")
                 gameData.remove(event.group.id)
                 keyWords.remove(event.group.id)
-                playerGroup.remove(event.sender.id)
+                playerGroup.remove(winner)
                 isGameStart.remove(event.group.id)
             }
         }
         //结束游戏
         GlobalEventChannel.filter { event: Event ->
-            event is GroupMessageEvent && isGameStart[event.group.id] == true
-                    && event.message.contentToString().startsWith("/结束nk")
+            event is GroupMessageEvent && event.message.contentToString().startsWith("/结束nk")
                     && gameData[event.group.id]?.containsKey(event.sender.id) == true
         }.subscribeAlways<GroupMessageEvent> { event ->
             gameData.remove(event.group.id)
             keyWords.remove(event.group.id)
-            playerGroup.remove(event.sender.id)
+            playerGroup = playerGroup.filter { (_, group) -> group != event.group.id }.toMutableMap()
             isGameStart.remove(event.group.id)
             event.group.sendMessage(event.message.quote()+"游戏已经结束啦——")
         }
@@ -139,6 +160,14 @@ object NkGame : KotlinPlugin(
             gameData[event.group.id]?.remove(event.sender.id)
             playerGroup.remove(event.sender.id)
             event.group.sendMessage(event.message.quote()+"你已经退出本群的游戏")
+            if ((gameData[event.group.id]?.keys?.size ?: 0) <= 1){
+                val winner = gameData[event.group.id]?.keys?.firstOrNull()
+                event.group.sendMessage("游戏结束,恭喜${winner?.let { event.group[it] }?.nick}获得胜利!")
+                gameData.remove(event.group.id)
+                keyWords.remove(event.group.id)
+                playerGroup.remove(winner)
+                isGameStart.remove(event.group.id)
+            }
         }
     }
 }
